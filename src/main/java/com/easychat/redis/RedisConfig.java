@@ -1,0 +1,59 @@
+package com.easychat.redis;
+
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.serializer.RedisSerializer;
+
+/**
+ * @ClassName: RedisConfig
+ * @Description: redis配置
+ * @Author: 丁铭涛
+ * @DateTime: 2025/4/2 21:41
+ **/
+@Configuration
+public class RedisConfig<V> {
+
+    @Value("${spring.redis.host:}")
+    private String redisHost;
+
+    @Value("${spring.redis.port:}")
+    private Integer redisPort;
+
+    private static final Logger logger = LoggerFactory.getLogger(RedisConfig.class);
+    @Bean(name = "redissonClient", destroyMethod = "shutdown")
+    public RedissonClient redissonClient() {
+        try {
+            Config config = new Config();
+            config.useSingleServer().setAddress("redis://" + redisHost + ":" + redisPort);
+            RedissonClient redisson = Redisson.create(config);
+            return redisson;
+        } catch (Exception e) {
+            logger.info("redis配置错误,请检查redis配置");
+        }
+        return null;
+    }
+
+    @Bean("redisTemplate")
+    public RedisTemplate<String, V> redisTemplate(RedisConnectionFactory factory) {
+        RedisTemplate<String, V> template = new RedisTemplate<>();
+        template.setConnectionFactory(factory);
+        // 设置key的序列化方式
+        template.setKeySerializer(RedisSerializer.string());
+        // 设置value的序列化方式
+        template.setValueSerializer(RedisSerializer.json());
+        // 设置hash的key的序列化方式
+        template.setHashKeySerializer(RedisSerializer.string());
+        // 设置hash的value的序列化方式
+        template.setHashValueSerializer(RedisSerializer.json());
+        template.afterPropertiesSet();
+        return template;
+    }
+}
