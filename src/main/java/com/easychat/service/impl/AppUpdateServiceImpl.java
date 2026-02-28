@@ -199,7 +199,7 @@ public class AppUpdateServiceImpl implements AppUpdateService {
                 throw new BusinessException("当前版本必须大于历史版本");
             }
             AppUpdate versionDb = appUpdateMapper.selectByVersion(appUpdate.getVersion());
-            if (appUpdate.getId() != null && versionDb != null && !appUpdate.getId().equals(lastest.getId())) {
+            if (appUpdate.getId() != null && versionDb != null && !versionDb.getId().equals(appUpdate.getId())) {
                 throw new BusinessException("版本号已存在");
             }
         }
@@ -239,7 +239,7 @@ public class AppUpdateServiceImpl implements AppUpdateService {
     }
 
     @Override
-    public AppUpdate getlatestUpdate(String appVersion, String uid) {
+    public AppUpdate getLatestUpdate(String appVersion, String uid) {
         return appUpdateMapper.selectLatestUpdate(appVersion,uid);
     }
 }

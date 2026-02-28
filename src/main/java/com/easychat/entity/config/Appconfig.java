@@ -28,6 +28,18 @@ public class Appconfig {
     @Value("${admin.emails:}")
     private String adminEmails;
 
+    /**
+     * DeepSeek API配置
+     */
+    @Value("${deepseek.api.key:}")
+    private String deepseekApiKey;
+
+    @Value("${deepseek.api.url:https://api.deepseek.com/v1/chat/completions}")
+    private String deepseekApiUrl;
+
+    @Value("${deepseek.model:deepseek-chat}")
+    private String deepseekModel;
+
     public Integer getWsPort() {
         return wsPort;
     }
@@ -46,5 +58,17 @@ public class Appconfig {
 
     public String getAdminEmails() {
         return adminEmails;
+    }
+
+    public String getDeepseekApiKey() {
+        return deepseekApiKey;
+    }
+
+    public String getDeepseekApiUrl() {
+        return deepseekApiUrl;
+    }
+
+    public String getDeepseekModel() {
+        return deepseekModel;
     }
 }

@@ -95,6 +95,6 @@ public interface AppUpdateService {
 
     void postUpdate(Integer id, Integer status, String grayscaleUid);
 
-    AppUpdate getlatestUpdate(String appVersion,String uid);
+    AppUpdate getLatestUpdate(String appVersion,String uid);
 
 }

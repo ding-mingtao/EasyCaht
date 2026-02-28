@@ -24,6 +24,7 @@ import com.easychat.mappers.UserContactMapper;
 import com.easychat.redis.RedisComponent;
 import com.easychat.utils.CopyTools;
 import com.easychat.utils.DateUtil;
+import com.easychat.utils.JsonUtils;
 import com.easychat.websocket.MessageHandler;
 import org.apache.commons.lang3.ArrayUtils;
 import org.slf4j.Logger;
@@ -34,6 +35,7 @@ import com.easychat.entity.po.ChatMessage;
 import com.easychat.entity.vo.PaginationResultVO;
 import com.easychat.mappers.ChatMessageMapper;
 import com.easychat.service.ChatMessageService;
+import com.easychat.service.DeepSeekService;
 import com.easychat.utils.StringTools;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -57,6 +59,8 @@ public class ChatMessageServiceImpl implements ChatMessageService {
     private Appconfig appconfig;
     @Resource
     private UserContactMapper<UserContact, UserContactQuery> userContactMapper;
+    @Resource
+    private DeepSeekService deepSeekService;
 
     /**
      * 根据条件查询列表
@@ -181,11 +185,20 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         String contactId = chatMessage.getContactId();
         UserContactTypeEnum contactTypeEnum = UserContactTypeEnum.getByPrefix(contactId);
 
+        // 修正：确保在所有情况下都能正确生成sessionId
         if (UserContactTypeEnum.USER == contactTypeEnum) {
             sessionId = StringTools.getChatSessionId4User(new String[]{sendUserId, contactId});
         } else {
             sessionId = StringTools.getChatSessionId4Group(contactId);
         }
+
+        // 添加更严格的null检查
+        if (sessionId == null || sessionId.trim().isEmpty()) {
+            logger.error("无法生成有效的会话ID，sendUserId: {}, contactId: {}, contactTypeEnum: {}",
+                    sendUserId, contactId, contactTypeEnum);
+            throw new BusinessException("会话ID生成失败");
+        }
+
         chatMessage.setSessionId(sessionId);
         Long curTime = System.currentTimeMillis();
         chatMessage.setSendTime(curTime);
@@ -206,8 +219,8 @@ public class ChatMessageServiceImpl implements ChatMessageService {
             chatSession.setLastMessage(tokenUserInfoDto.getNickName() + "：" + messageContent);
         }
         chatSession.setLastReceiveTime(curTime);
-        chatSessionMapper.updateBySessionId(chatSession, sessionId);
-
+        int updateResult = chatSessionMapper.updateBySessionId(chatSession, sessionId);
+        logger.debug("更新会话结果: {} rows affected, sessionId: {}", updateResult, sessionId);
 
         //记录消息表
         chatMessage.setSendUserId(sendUserId);
@@ -218,21 +231,38 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
         MessageSendDto messageSendDto = CopyTools.copy(chatMessage, MessageSendDto.class);
 
-        //TODO 接入DeepSeek
-        if (Constants.ROBOT_UID.equals(contactId)) {
-            SysSettingDto sysSettingDto = redisComponent.getSysSetting();
-            TokenUserInfoDto robot = new TokenUserInfoDto();
-            robot.setUserId(sysSettingDto.getRobotUid());
-            robot.setNickName(sysSettingDto.getRobotNickName());
-            ChatMessage robotChatMessage = new ChatMessage();
-            robotChatMessage.setContactId(sendUserId);
-            //对接AI 实现聊天
-            robotChatMessage.setMessageContent("");
-            robotChatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
-            saveMessage(robotChatMessage, robot);
-        } else {
+        // 接入DeepSeek - 修正机器人回复逻辑
+        if (Constants.ROBOT_UID.equals(contactId) && !Constants.ROBOT_UID.equals(sendUserId)) {
+            try {
+                SysSettingDto sysSettingDto = redisComponent.getSysSetting();
+                TokenUserInfoDto robot = new TokenUserInfoDto();
+                robot.setUserId(sysSettingDto.getRobotUid());
+                robot.setNickName(sysSettingDto.getRobotNickName());
+                robot.setToken(tokenUserInfoDto.getToken());
+
+                ChatMessage robotChatMessage = new ChatMessage();
+                robotChatMessage.setMessageContent(deepSeekService.getAIResponse(messageContent));
+                robotChatMessage.setMessageType(MessageTypeEnum.CHAT.getType());
+                robotChatMessage.setContactId(sendUserId); // 回复给原始发送者
+
+                // 为机器人消息重新计算sessionId
+                String robotSessionId = StringTools.getChatSessionId4User(
+                        new String[]{sysSettingDto.getRobotUid(), sendUserId});
+
+                if (robotSessionId != null && !robotSessionId.trim().isEmpty()) {
+                    robotChatMessage.setSessionId(robotSessionId);
+                    saveMessage(robotChatMessage, robot);
+                } else {
+                    logger.error("机器人回复无法生成有效sessionId");
+                }
+            } catch (Exception e) {
+                logger.error("处理机器人回复时发生错误", e);
+                // 即使AI回复失败，也不影响正常消息流程
+            }
+        } else if (!Constants.ROBOT_UID.equals(contactId)) {
             messageHandler.sendMessage(messageSendDto);
         }
+
         return messageSendDto;
     }
 

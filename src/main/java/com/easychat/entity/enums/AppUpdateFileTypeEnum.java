@@ -25,7 +25,7 @@ public enum AppUpdateFileTypeEnum {
     }
     public static AppUpdateFileTypeEnum getByType(Integer type) {
         for (AppUpdateFileTypeEnum at : AppUpdateFileTypeEnum.values()) {
-            if(at.equals(type)) {
+            if(at.type.equals(type)) {
                 return at;
             }
         }

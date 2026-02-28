@@ -50,7 +50,7 @@ public class AdminAppUpdateController extends ABaseController {
     public ResponseVO saveUpdate(Integer id,
                                  @NotEmpty String version,
                                  @NotEmpty String updateDesc,
-                                 @NotEmpty Integer fileType,
+                                 @NotNull Integer fileType,
                                  String outerLink,
                                  MultipartFile file) throws IOException {
         AppUpdate appUpdate = new AppUpdate();

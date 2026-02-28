@@ -47,7 +47,7 @@ public class UpdateController extends ABaseController {
         if (StringTools.isEmpty(appVersion)) {
             return getSuccessResponseVO(null);
         }
-        AppUpdate appUpdate = appUpdateService.getlatestUpdate(appVersion,uid);
+        AppUpdate appUpdate = appUpdateService.getLatestUpdate(appVersion,uid);
         if (appUpdate == null) {
             return getSuccessResponseVO(null);
         }
